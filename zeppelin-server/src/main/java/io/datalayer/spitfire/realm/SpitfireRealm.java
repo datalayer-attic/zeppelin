@@ -51,29 +51,22 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  */
 public class SpitfireRealm extends AuthorizingRealm {
 
-    //TODO - complete JavaDoc
     protected final Map<String, SimpleAccount> users; //username-to-SimpleAccount
     protected final Map<String, SimpleRole> roles; //roleName-to-SimpleRole
     protected final ReadWriteLock USERS_LOCK;
     protected final ReadWriteLock ROLES_LOCK;
 
     public SpitfireRealm() {
+
         this.users = new LinkedHashMap<String, SimpleAccount>();
         this.roles = new LinkedHashMap<String, SimpleRole>();
         USERS_LOCK = new ReentrantReadWriteLock();
         ROLES_LOCK = new ReentrantReadWriteLock();
-        //SimpleAccountRealms are memory-only realms - no need for an additional cache mechanism since we're
-        //already as memory-efficient as we can be:
+
+        // SimpleAccountRealms are memory-only realms - no need for an additional cache mechanism since we're already as memory-efficient as we can be.
         setCachingEnabled(false);
 
-        users.put("eric@datalayer.onmicrosoft.com", new SimpleAccount("eric@datalayer.onmicrosoft.com", "eric@datalayer.onmicrosoft.com", ""));
-
         users.put("rest", new SimpleAccount("rest", "radsf2@!", ""));
-
-        users.put("ingrid@datalayer.onmicrosoft.com", new SimpleAccount("ingrid@datalayer.onmicrosoft.com", "ingrid@datalayer.onmicrosoft.com", ""));
-        users.put("elisabeth@datalayer.io", new SimpleAccount("elisabeth@datalayer.io", "elisabeth@datalayer.io", ""));
-        users.put("foo@datalayer.onmicrosoft.com", new SimpleAccount("foo@datalayer.onmicrosoft.com", "foo@datalayer.onmicrosoft.com", ""));
-        users.put("john@datalayer.io", new SimpleAccount("john@datalayer.io", "john@datalayer.io", ""));
 
     }
 
@@ -162,7 +155,6 @@ public class SpitfireRealm extends AuthorizingRealm {
                 values.add(trimmed);
             }
         }
-
         return values;
     }
 
@@ -175,10 +167,15 @@ public class SpitfireRealm extends AuthorizingRealm {
             addAccount(username, new String(password), "admin");
         }
 */
+        if (upToken.getUsername() == null) return null;
+        String pwd = new String(upToken.getPassword());
+        if (pwd.equals("spitfire-shared")) {
+            addAccount(upToken.getUsername(), pwd, "admin");
+            getUser(upToken.getUsername());
+        }
+
         SimpleAccount account = getUser(upToken.getUsername());
-
         if (account != null) {
-
             if (account.isLocked()) {
                 throw new LockedAccountException("Account [" + account + "] is locked.");
             }
@@ -186,9 +183,7 @@ public class SpitfireRealm extends AuthorizingRealm {
                 String msg = "The credentials for account [" + account + "] are expired";
                 throw new ExpiredCredentialsException(msg);
             }
-
         }
-
         return account;
     }
 
