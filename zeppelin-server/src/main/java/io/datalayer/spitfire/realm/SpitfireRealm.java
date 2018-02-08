@@ -30,6 +30,7 @@ import org.apache.shiro.authz.SimpleRole;
 import org.apache.shiro.realm.AuthorizingRealm;
 import org.apache.shiro.subject.PrincipalCollection;
 import org.apache.shiro.util.CollectionUtils;
+import org.apache.zeppelin.socket.NotebookServer;
 
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -168,9 +169,15 @@ public class SpitfireRealm extends AuthorizingRealm {
         }
 */
         if (upToken.getUsername() == null) return null;
+
+        String username = upToken.getUsername();
+
+        if (NotebookServer.users.get(username) == null) return null;
+
         String pwd = new String(upToken.getPassword());
+
         if (pwd.equals("spitfire-shared")) {
-            addAccount(upToken.getUsername(), pwd, "admin");
+            addAccount(username, pwd, "admin");
             getUser(upToken.getUsername());
         }
 
