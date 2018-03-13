@@ -405,11 +405,11 @@ public class InterpreterSetting {
     String key;
     if (option.isExistingProcess()) {
       key = Constants.EXISTING_PROCESS;
-    } else if (option.perNoteScoped() && option.perUserScoped()) {
+    } else if (option.perNoteIsolated() && option.perUserIsolated()) {
       key = user + ":" + noteId;
-    } else if (option.perUserScoped()) {
+    } else if (option.perUserIsolated()) {
       key = user;
-    } else if (option.perNoteScoped()) {
+    } else if (option.perNoteIsolated()) {
       key = noteId;
     } else {
       key = SHARED_SESSION;
