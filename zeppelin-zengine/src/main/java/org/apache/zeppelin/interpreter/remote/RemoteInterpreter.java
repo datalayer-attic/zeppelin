@@ -388,7 +388,7 @@ public class RemoteInterpreter extends Interpreter {
             ZeppelinConfiguration.ConfVars.ZEPPELIN_INTERPRETER_MAX_POOL_SIZE.getIntValue() + ""));
 
     Scheduler s = new RemoteScheduler(
-        RemoteInterpreter.class.getName() + "-" + sessionId,
+        RemoteInterpreter.class.getName() + "-" + getInterpreterGroup().getId() + sessionId,
         SchedulerFactory.singleton().getExecutor(),
         sessionId,
         this,
