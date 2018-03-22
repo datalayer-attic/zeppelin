@@ -16,6 +16,8 @@
  */
 package org.apache.zeppelin.socket;
 
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
@@ -88,6 +90,24 @@ public class NotebookServer extends WebSocketServlet
     implements NotebookSocketListener, JobListenerFactory, AngularObjectRegistryListener,
     RemoteInterpreterProcessListener, ApplicationEventListener {
 
+  private static Gson gson = new GsonBuilder()
+      .setDateFormat("yyyy-MM-dd'T'HH:mm:ssZ")
+      .registerTypeAdapter(Date.class, new NotebookImportDeserializer())
+      .setPrettyPrinting()
+      .registerTypeAdapterFactory(Input.TypeAdapterFactory).create();
+
+  public static Message flows = new Message(OP.LIST_FLOWS).put("flows", new HashMap());
+  private static String flowsPath() { return ZeppelinConfiguration.create().getNotebookDir() + "/_conf/flows.json"; }
+  static {
+    try {
+        byte[] bytes = Files.readAllBytes(Paths.get(flowsPath()));
+        String f = new String(bytes);
+        flows = gson.fromJson(f, Message.class);
+      } catch (IOException e) {
+     e.printStackTrace();
+    }
+  }
+
   /**
    * Job manager service type
    */
@@ -106,11 +126,6 @@ public class NotebookServer extends WebSocketServlet
 
 
   private static final Logger LOG = LoggerFactory.getLogger(NotebookServer.class);
-  private static Gson gson = new GsonBuilder()
-      .setDateFormat("yyyy-MM-dd'T'HH:mm:ssZ")
-      .registerTypeAdapter(Date.class, new NotebookImportDeserializer())
-      .setPrettyPrinting()
-      .registerTypeAdapterFactory(Input.TypeAdapterFactory).create();
 
   final Map<String, List<NotebookSocket>> noteSocketMap = new HashMap<>();
   final Queue<NotebookSocket> connectedSockets = new ConcurrentLinkedQueue<>();
@@ -404,6 +419,14 @@ public class NotebookServer extends WebSocketServlet
         case WATCHER:
           switchConnectionToWatcher(conn, messagereceived);
           break;
+        case SAVE_FLOWS:
+            this.flows = messagereceived;
+            Files.write(Paths.get(flowsPath()), msg.getBytes());
+            unicast(this.flows, conn);
+            break;
+        case LIST_FLOWS:
+            unicast(this.flows, conn);
+            break;
         case SAVE_NOTE_FORMS:
           saveNoteForms(conn, userAndRoles, notebook, messagereceived);
           break;
