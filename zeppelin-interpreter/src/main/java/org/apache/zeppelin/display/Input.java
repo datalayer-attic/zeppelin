@@ -38,13 +38,14 @@ public class Input<T> implements Serializable {
   // in future.
   public static final RuntimeTypeAdapterFactory TypeAdapterFactory =
       RuntimeTypeAdapterFactory.of(Input.class, "type")
-          .registerSubtype(TextBox.class, "TextBox")
-          .registerSubtype(Select.class, "Select")
-          .registerSubtype(CheckBox.class, "CheckBox")
-          .registerSubtype(OldInput.OldTextBox.class, "input")
-          .registerSubtype(OldInput.OldSelect.class, "select")
-          .registerSubtype(OldInput.OldCheckBox.class, "checkbox")
-          .registerSubtype(OldInput.class, null);
+        .registerSubtype(TextBox.class, "TextBox")
+        .registerSubtype(Select.class, "Select")
+        .registerSubtype(CheckBox.class, "CheckBox")
+        .registerSubtype(Input.class, "Input")
+        .registerSubtype(OldInput.OldTextBox.class, "input")
+        .registerSubtype(OldInput.OldSelect.class, "select")
+        .registerSubtype(OldInput.OldCheckBox.class, "checkbox")
+        .registerSubtype(OldInput.class, null);
 
   protected String name;
   protected String displayName;
