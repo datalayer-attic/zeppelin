@@ -73,7 +73,7 @@ public class SparkK8SInterpreterLauncher extends SparkInterpreterLauncher {
       groupId = formatId(groupId, 50);
       // add groupId to app name, this will be the prefix for driver pod name if it's not
       // explicitly specified
-      String driverPodNamePrefix = properties.get(SPARK_APP_NAME) + "-" + groupId;
+      String driverPodNamePrefix = formatId(properties.get(SPARK_APP_NAME) + "-" + groupId, 35);
       properties.put(SPARK_APP_NAME, driverPodNamePrefix);
       // set same id for metrics namespace to be able to identify metrics of a specific app
       properties.put(SPARK_METRICS_NAMESPACE, driverPodNamePrefix);
@@ -131,7 +131,7 @@ public class SparkK8SInterpreterLauncher extends SparkInterpreterLauncher {
   }
 
   private String generatePodLabelId(String interpreterGroupId ) {
-    return formatId(interpreterGroupId + "_" + System.currentTimeMillis(), 64);
+    return formatId(interpreterGroupId + "_" + System.currentTimeMillis(), 35);
   }
 
 }
