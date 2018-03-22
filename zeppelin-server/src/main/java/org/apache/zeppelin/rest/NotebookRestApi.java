@@ -299,7 +299,7 @@ public class NotebookRestApi {
     AuthenticationInfo subject = new AuthenticationInfo(SecurityUtils.getPrincipal());
     HashSet<String> userAndRoles = SecurityUtils.getRoles();
     userAndRoles.add(subject.getUser());
-    List<Map<String, String>> notesInfo = notebookServer.generateNotesInfo(false, subject,
+    List<Map<String, Object>> notesInfo = notebookServer.generateNotesInfo(false, subject,
         userAndRoles);
     return new JsonResponse<>(Status.OK, "", notesInfo).build();
   }

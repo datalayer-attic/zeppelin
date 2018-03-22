@@ -114,6 +114,8 @@ public class Message implements JsonSerializable {
                       // @param completions list of string
 
     LIST_NOTES,                   // [c-s] ask list of note
+    LIST_NOTES_SPITFIRE,                   // [c-s] ask list of note
+    SAVE_LAYOUT,
     RELOAD_NOTES_FROM_REPO,       // [c-s] reload notes from repo
 
     NOTES_INFO,                   // [s-c] list of note infos
