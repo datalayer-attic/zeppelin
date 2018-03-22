@@ -125,6 +125,9 @@ public class Message implements JsonSerializable {
     PARAGRAPH_APPEND_OUTPUT,      // [s-c] append output
     PARAGRAPH_UPDATE_OUTPUT,      // [s-c] update (replace) output
     PING,
+    LIST_USERS,
+    ADD_USERS,
+    REMOVE_USERS,
     AUTH_INFO,
 
     ANGULAR_OBJECT_UPDATE,        // [s-c] add/update angular object

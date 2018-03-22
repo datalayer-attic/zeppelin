@@ -114,6 +114,18 @@ public class NotebookServer extends WebSocketServlet
   final Queue<NotebookSocket> connectedSockets = new ConcurrentLinkedQueue<>();
   final Map<String, Queue<NotebookSocket>> userConnectedSockets = new ConcurrentHashMap<>();
 
+  public static Map<String, Object> users = new HashMap();
+  private static String usersPath() { return ZeppelinConfiguration.create().getNotebookDir() + "/_conf/users.json"; }
+  static {
+    try {
+      byte[] bytes = Files.readAllBytes(Paths.get(usersPath()));
+      String f = new String(bytes);
+      users = gson.fromJson(f, Map.class);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+  }
+
   /**
    * This is a special endpoint in the notebook websoket, Every connection in this Queue
    * will be able to watch every websocket event, it doesnt need to be listed into the map of
@@ -305,6 +317,22 @@ public class NotebookServer extends WebSocketServlet
           break;
         case PING:
           break; //do nothing
+        case LIST_USERS:
+          Message us = new Message(OP.LIST_USERS).put("users", this.users);
+          unicast(us, conn);
+          break;
+        case ADD_USERS:
+          this.users.putAll(messagereceived.data);
+          Files.write(Paths.get(usersPath()), gson.toJson(this.users).getBytes());
+          unicast(new Message(OP.LIST_USERS).put("users", this.users), conn);
+          break;
+        case REMOVE_USERS:
+          for (Object u: messagereceived.data.values()) {
+            this.users.remove(u);
+          }
+          Files.write(Paths.get(usersPath()), gson.toJson(this.users).getBytes());
+          unicast(new Message(OP.LIST_USERS).put("users", this.users), conn);
+          break;
         case ANGULAR_OBJECT_UPDATED:
           angularObjectUpdated(conn, userAndRoles, notebook, messagereceived);
           break;
