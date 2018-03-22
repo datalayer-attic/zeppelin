@@ -311,6 +311,9 @@ public class NotebookServer extends WebSocketServlet
         case RUN_ALL_PARAGRAPHS:
           runAllParagraphs(conn, userAndRoles, notebook, messagereceived);
           break;
+        case RUN_ALL_PARAGRAPHS_SPITFIRE:
+          runAllParagraphsSpitfire(conn, userAndRoles, notebook, messagereceived);
+          break;
         case CANCEL_PARAGRAPH:
           cancelParagraph(conn, userAndRoles, notebook, messagereceived);
           break;
@@ -1769,20 +1772,20 @@ public class NotebookServer extends WebSocketServlet
 
   private void runAllParagraphs(NotebookSocket conn, HashSet<String> userAndRoles,
                                 Notebook notebook,
-      Message fromMessage) throws IOException {
+                                Message fromMessage) throws IOException {
     final String noteId = (String) fromMessage.get("noteId");
     if (StringUtils.isBlank(noteId)) {
       return;
     }
 
     if (!hasParagraphRunnerPermission(conn, notebook, noteId,
-        userAndRoles, fromMessage.principal, "run all paragraphs")) {
+            userAndRoles, fromMessage.principal, "run all paragraphs")) {
       return;
     }
 
     List<Map<String, Object>> paragraphs =
-        gson.fromJson(String.valueOf(fromMessage.data.get("paragraphs")),
-            new TypeToken<List<Map<String, Object>>>() {}.getType());
+            gson.fromJson(String.valueOf(fromMessage.data.get("paragraphs")),
+                    new TypeToken<List<Map<String, Object>>>() {}.getType());
 
     for (Map<String, Object> raw : paragraphs) {
       String paragraphId = (String) raw.get("id");
@@ -1797,12 +1800,64 @@ public class NotebookServer extends WebSocketServlet
 
       Note note = notebook.getNote(noteId);
       Paragraph p = setParagraphUsingMessage(note, fromMessage,
-          paragraphId, text, title, params, config);
+              paragraphId, text, title, params, config);
 
       if (!persistAndExecuteSingleParagraph(conn, note, p, true)) {
         // stop execution when one paragraph fails.
         break;
       }
+    }
+  }
+
+  private void runAllParagraphsSpitfire(NotebookSocket conn, HashSet<String> userAndRoles,
+                                Notebook notebook,
+                                Message fromMessage) throws IOException {
+    final String noteId = (String) fromMessage.get("noteId");
+    if (StringUtils.isBlank(noteId)) {
+      return;
+    }
+
+    if (!hasParagraphRunnerPermission(conn, notebook, noteId,
+            userAndRoles, fromMessage.principal, "run all paragraphs")) {
+      return;
+    }
+
+    List<Map<String, Object>> paragraphs;
+
+    try {
+      paragraphs = (List<Map<String, Object>>) fromMessage.data.get("paragraphs");
+    }
+    catch (Exception e) {
+      paragraphs = gson.fromJson(String.valueOf(fromMessage.data.get("paragraphs")),
+              new TypeToken<List<Map<String, Object>>>() {}.getType());
+    }
+
+    Note note = notebook.getNote(noteId);
+    while (! note.getParagraphs().isEmpty()) {
+      note.removeParagraph("anonymous", note.getParagraphs().get(0).getId());
+    }
+
+    for (Map<String, Object> raw : paragraphs) {
+      String paragraphId = (String) raw.get("id");
+      if (paragraphId == null) {
+        continue;
+      }
+
+      String text = (String) raw.get("text");
+      String title = (String) raw.get("title");
+      Map<String, Object> params = (Map<String, Object>) raw.get("params");
+      Map<String, Object> config = (Map<String, Object>) raw.get("config");
+//      Map<String, Input> forms = (Map<String, Input>) ((Map<String, Object>) raw.get("settings")).get("forms");
+
+      Paragraph p1 = note.addNewParagraph(AuthenticationInfo.ANONYMOUS);
+/*
+      Paragraph p = setParagraphUsingMessage(note, fromMessage,
+          paragraphId, text, title, params, config);
+*/
+      Paragraph p2 = setParagraphUsingMessage2(note, raw, fromMessage, p1,
+              paragraphId, text, title, params, config);
+
+      persistAndExecuteSingleParagraph(conn, note, p2, false);
     }
   }
 
@@ -1929,7 +1984,7 @@ public class NotebookServer extends WebSocketServlet
   private boolean persistAndExecuteSingleParagraph(NotebookSocket conn,
                                                 Note note, Paragraph p,
                                                 boolean blocking) throws IOException {
-    addNewParagraphIfLastParagraphIsExecuted(note, p);
+//    addNewParagraphIfLastParagraphIsExecuted(note, p);
     if (!persistNoteWithAuthInfo(conn, note, p)) {
       return false;
     }
@@ -1958,6 +2013,32 @@ public class NotebookServer extends WebSocketServlet
     p.setAuthenticationInfo(subject);
     p.settings.setParams(params);
     p.setConfig(config);
+
+    if (note.isPersonalizedMode()) {
+      p = note.getParagraph(paragraphId);
+      p.setText(text);
+      p.setTitle(title);
+      p.setAuthenticationInfo(subject);
+      p.settings.setParams(params);
+      p.setConfig(config);
+    }
+
+    return p;
+  }
+
+  private Paragraph setParagraphUsingMessage2(Note note, Map<String, Object> raw, Message fromMessage, Paragraph p, String paragraphId,
+                                             String text, String title, Map<String, Object> params,
+                                             Map<String, Object> config) {
+    p.setText(text);
+    p.setTitle(title);
+    AuthenticationInfo subject =
+            new AuthenticationInfo(fromMessage.principal, fromMessage.roles, fromMessage.ticket);
+    p.setAuthenticationInfo(subject);
+    p.settings.setParams(new HashMap<String, Object>());
+    p.settings.setForms(new LinkedHashMap<String, Input>());
+    p.setConfig(config);
+    p.setId((String) raw.get("id"));
+    p.setJobName((String) raw.get("jobName"));
 
     if (note.isPersonalizedMode()) {
       p = note.getParagraph(paragraphId);
