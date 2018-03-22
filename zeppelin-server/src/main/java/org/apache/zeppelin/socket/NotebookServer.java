@@ -88,6 +88,18 @@ public class NotebookServer extends WebSocketServlet
     implements NotebookSocketListener, JobListenerFactory, AngularObjectRegistryListener,
     RemoteInterpreterProcessListener, ApplicationEventListener {
 
+  public static Message flows = new Message(OP.LIST_FLOWS).put("flows", new HashMap());
+  private static String flowsPath() { return ZeppelinConfiguration.create().getNotebookDir() + "/_conf/flows.json"; }
+  static {
+    try {
+        byte[] bytes = Files.readAllBytes(Paths.get(flowsPath()));
+        String f = new String(bytes);
+        flows = gson.fromJson(f, Message.class);
+      } catch (IOException e) {
+     e.printStackTrace();
+    }
+  }
+
   /**
    * Job manager service type
    */
@@ -115,20 +127,6 @@ public class NotebookServer extends WebSocketServlet
   final Map<String, List<NotebookSocket>> noteSocketMap = new HashMap<>();
   final Queue<NotebookSocket> connectedSockets = new ConcurrentLinkedQueue<>();
   final Map<String, Queue<NotebookSocket>> userConnectedSockets = new ConcurrentHashMap<>();
-
-  public static Message flows = new Message(OP.LIST_FLOWS).put("flows", new HashMap());
-
-  private static String flowsPath() { return ZeppelinConfiguration.create().getNotebookDir() + "/_conf/flows.json"; }
-
-  static {
-    try {
-        byte[] bytes = Files.readAllBytes(Paths.get(flowsPath()));
-        String f = new String(bytes);
-        flows = gson.fromJson(f, Message.class);
-      } catch (IOException e) {
-     e.printStackTrace();
-    }
-  }
 
   /**
    * This is a special endpoint in the notebook websoket, Every connection in this Queue
