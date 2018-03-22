@@ -114,16 +114,7 @@ public class NotebookServer extends WebSocketServlet
   final Queue<NotebookSocket> connectedSockets = new ConcurrentLinkedQueue<>();
   final Map<String, Queue<NotebookSocket>> userConnectedSockets = new ConcurrentHashMap<>();
 
-  /**
-   * This is a special endpoint in the notebook websoket, Every connection in this Queue
-   * will be able to watch every websocket event, it doesnt need to be listed into the map of
-   * noteSocketMap. This can be used to get information about websocket traffic and watch what
-   * is going on.
-   */
-  final Queue<NotebookSocket> watcherSockets = Queues.newConcurrentLinkedQueue();
-
   public static Map<String, Object> users = new HashMap();
-
   private static String usersPath() { return ZeppelinConfiguration.create().getNotebookDir() + "/_conf/users.json"; }
   static {
     try {
@@ -134,6 +125,14 @@ public class NotebookServer extends WebSocketServlet
       e.printStackTrace();
     }
   }
+
+  /**
+   * This is a special endpoint in the notebook websoket, Every connection in this Queue
+   * will be able to watch every websocket event, it doesnt need to be listed into the map of
+   * noteSocketMap. This can be used to get information about websocket traffic and watch what
+   * is going on.
+   */
+  final Queue<NotebookSocket> watcherSockets = Queues.newConcurrentLinkedQueue();
 
   private Notebook notebook() {
     return ZeppelinServer.notebook;
