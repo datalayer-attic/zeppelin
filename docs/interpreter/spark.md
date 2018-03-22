@@ -199,6 +199,11 @@ Zeppelin support both yarn client and yarn cluster mode (yarn cluster mode is su
 You can either specify them in `zeppelin-env.sh`, or in interpreter setting page. Specifying them in `zeppelin-env.sh` means you can use only one version of `spark` & `hadoop`. Specifying them
 in interpreter setting page means you can use multiple versions of `spark` & `hadoop` in one zeppelin instance.
 
+### 4. Kubernetes cluster modules
+
+Zeppelin supports running Spark notebooks on Kubernetes in cluster mode, you can find more detailed description here: [How to run Zeppelin Spark notebooks on a Kubernetes cluster
+](../interpreter/spark-interpreter-k8s.html)
+
 ## SparkContext, SQLContext, SparkSession, ZeppelinContext
 SparkContext, SQLContext and ZeppelinContext are automatically created and exposed as variable names `sc`, `sqlContext` and `z`, respectively, in Scala, Python and R environments.
 Staring from 0.6.1 SparkSession is available as variable `spark` when you are using Spark 2.x.

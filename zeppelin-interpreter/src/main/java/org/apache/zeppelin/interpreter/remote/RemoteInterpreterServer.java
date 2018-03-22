@@ -99,7 +99,7 @@ import java.util.concurrent.ConcurrentMap;
 public class RemoteInterpreterServer
   extends Thread
   implements RemoteInterpreterService.Iface, AngularObjectRegistryListener {
-  Logger logger = LoggerFactory.getLogger(RemoteInterpreterServer.class);
+  static Logger logger = LoggerFactory.getLogger(RemoteInterpreterServer.class);
 
   InterpreterGroup interpreterGroup;
   AngularObjectRegistry angularObjectRegistry;
@@ -256,14 +256,18 @@ public class RemoteInterpreterServer
       throws TTransportException, InterruptedException, IOException {
     String callbackHost = null;
     int port = Constants.ZEPPELIN_INTERPRETER_DEFAUlT_PORT;
+
     String portRange = ":";
-    if (args.length > 0) {
+    if (args.length == 1) {
+      port = Integer.parseInt(args[0]);
+    } else if (args.length > 0) {
       callbackHost = args[0];
       port = Integer.parseInt(args[1]);
       if (args.length > 2) {
         portRange = args[2];
       }
     }
+
     RemoteInterpreterServer remoteInterpreterServer =
         new RemoteInterpreterServer(callbackHost, port, portRange);
     remoteInterpreterServer.start();
