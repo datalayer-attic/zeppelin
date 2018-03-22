@@ -51,6 +51,7 @@ public class InterpreterResult implements Serializable, JsonSerializable {
     MATHJAX,
     TEXT,
     HTML,
+    API,
     ANGULAR,
     TABLE,
     IMG,
