@@ -127,7 +127,9 @@ public class SparkK8SInterpreterLauncher extends SparkInterpreterLauncher {
     if (str.length() > maxLength) {
       str = str.substring(0, maxLength - 1);
     }
-    return str;
+    String str1 = str.replaceAll("^-+", "");
+    String str2 = str1.replaceAll("-+$", "");
+    return str2;
   }
 
   private String generatePodLabelId(String interpreterGroupId ) {
