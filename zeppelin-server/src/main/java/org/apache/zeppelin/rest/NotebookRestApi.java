@@ -20,6 +20,10 @@ package org.apache.zeppelin.rest;
 import java.io.IOException;
 import java.util.*;
 
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
@@ -38,6 +42,7 @@ import org.apache.zeppelin.notebook.Note;
 import org.apache.zeppelin.notebook.Notebook;
 import org.apache.zeppelin.notebook.NotebookAuthorization;
 import org.apache.zeppelin.notebook.Paragraph;
+import org.apache.zeppelin.notebook.socket.Message;
 import org.apache.zeppelin.rest.exception.BadRequestException;
 import org.apache.zeppelin.rest.exception.NotFoundException;
 import org.apache.zeppelin.rest.exception.ForbiddenException;
@@ -57,6 +62,8 @@ import com.google.common.collect.Sets;
 import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
 
+import org.apache.zeppelin.rest.graph.TopologicalSort;
+
 /**
  * Rest api endpoint for the notebook.
  */
@@ -69,6 +76,12 @@ public class NotebookRestApi {
   private NotebookServer notebookServer;
   private SearchService noteSearchService;
   private NotebookAuthorization notebookAuthorization;
+  private static final ObjectMapper MAPPER = new ObjectMapper();
+  private static final TypeReference<HashMap<String,Object>> typeRef = new TypeReference<HashMap<String,Object>>() {};
+
+  static {
+    MAPPER.configure(JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES, true);
+  }
 
   public NotebookRestApi() {
   }
@@ -642,7 +655,7 @@ public class NotebookRestApi {
   @Path("job/{noteId}")
   @ZeppelinApi
   public Response runNoteJobs(@PathParam("noteId") String noteId)
-      throws IOException, IllegalArgumentException {
+          throws IOException, IllegalArgumentException {
     LOG.info("run note jobs {} ", noteId);
     Note note = notebook.getNote(noteId);
     AuthenticationInfo subject = new AuthenticationInfo(SecurityUtils.getPrincipal());
@@ -654,9 +667,132 @@ public class NotebookRestApi {
     } catch (Exception ex) {
       LOG.error("Exception from run", ex);
       return new JsonResponse<>(Status.PRECONDITION_FAILED,
-          ex.getMessage() + "- Not selected or Invalid Interpreter bind").build();
+              ex.getMessage() + "- Not selected or Invalid Interpreter bind").build();
     }
     return new JsonResponse<>(Status.OK).build();
+  }
+
+  @POST
+  @Path("kerberos/flow/run/sync/{flowId}")
+  @ZeppelinApi
+  public Response kerberosRunFlowSync(@PathParam("flowId") String flowId, String message)
+          throws IOException, IllegalArgumentException {
+    return runFlowSync(flowId, message);
+  }
+
+  @POST
+  @Path("flow/run/sync/{flowId}")
+  @ZeppelinApi
+  public Response runFlowSync(@PathParam("flowId") String flowId, String message)
+          throws IOException, IllegalArgumentException {
+
+    LOG.info("Message {}", message);
+    LOG.info("run flow {} ", flowId);
+
+    Message m = NotebookServer.flows;
+    List<Map<String, Object>> flows = (List<Map<String, Object>>) m.data.get("flows");
+    Map<String, Object>  flow = null;
+    for (Map<String, Object> f: flows) {
+      if (f.get("id").equals(flowId)) {
+        flow = (Map<String, Object>) f.get("dag");
+      }
+    }
+
+    System.out.println(flow);
+
+    // {
+    //   nodes=[{id=1.0, type=empty, title=0-0-tmp-1, x=461.8311987745461, y=372.04213649150154, noteId=2CHG74Y8S, noteName=0-0-tmp-1}, {id=2.0, type=empty, title=0-0-tmp-2, x=767.5085564612182, y=493.22754750058107, noteId=2CH2UWQQE, noteName=0-0-tmp-2}, {id=3.0, type=empty, title=tmo, x=1069.5356167567406, y=381.7988536189176, noteId=2CKAHMXKD, noteName=tmo}, {id=4.0, type=empty, title=_lib, x=760.4493981332323, y=273.54175400140906, noteId=_lib, noteName=_lib}, {id=5.0, type=empty, title=_lib, x=18.286309419624878, y=149.61645984235196, noteId=_lib, noteName=_lib}, {id=6.0, type=empty, title=0-0-tmp-3, x=1396.1749155168577, y=380.3781336523883, noteId=2CM1E9ZSG, noteName=0-0-tmp-3}],
+    //   edges=[{source=2CHG74Y8S, target=2CH2UWQQE, type=emptyEdge}, {source=2CHG74Y8S, target=_lib, type=emptyEdge}, {source=_lib, target=2CKAHMXKD, type=emptyEdge}, {source=2CH2UWQQE, target=2CKAHMXKD, type=emptyEdge}, {source=2CKAHMXKD, target=2CM1E9ZSG, type=emptyEdge}]
+    // }
+
+    List<Map<String, String>> nodes = (List<Map<String, String>>) flow.get("nodes");
+    List<Map<String, String>> edges = (List<Map<String, String>>) flow.get("edges");
+
+    List<TopologicalSort.Node> nl = new ArrayList<TopologicalSort.Node>();
+    Map<String, TopologicalSort.Node> nmap = new HashMap<String, TopologicalSort.Node>();
+    for (Map<String, String> n: nodes) {
+      String noteId = n.get("noteId");
+      TopologicalSort.Node node = new TopologicalSort.Node(noteId);
+      nl.add(node);
+      nmap.put(noteId, node);
+    }
+    for (Map<String, String> e: edges) {
+      String source = e.get("source");
+      TopologicalSort.Node sourceNode = nmap.get(source);
+      String target = e.get("target");
+      TopologicalSort.Node targeteNode = nmap.get(target);
+      sourceNode.addEdge(targeteNode);
+    }
+
+    TopologicalSort.Node[] sortedNodes = TopologicalSort.sort(nmap.values().toArray(new TopologicalSort.Node[]{}));
+
+    for (TopologicalSort.Node node: sortedNodes) {
+      runNoteSync(node.name, message);
+    }
+
+
+    return new JsonResponse<>(Status.OK).build();
+
+  }
+
+  @POST
+  @Path("note/run/sync/{noteId}")
+  @ZeppelinApi
+  public Response runNoteSync(@PathParam("noteId") String noteId, String message)
+          throws IOException, IllegalArgumentException {
+    LOG.info("Message {}", message);
+    LOG.info("run note jobs {} ", noteId);
+    Note note = notebook.getNote(noteId);
+    HashMap<String,Object> params = this.MAPPER.readValue(message, typeRef);
+    AuthenticationInfo subject = new AuthenticationInfo(SecurityUtils.getPrincipal());
+    checkIfNoteIsNotNull(note);
+    checkIfUserCanWrite(noteId, "Insufficient privileges you cannot run job for this note");
+    for (Paragraph paragraph: note.getParagraphs()) {
+      paragraph.settings.getParams().putAll(params);
+      checkIfNoteIsNotNull(note);
+      checkIfUserCanWrite(noteId, "Insufficient privileges you cannot run paragraph");
+      checkIfParagraphIsNotNull(paragraph);
+      // handle params if presented
+      handleParagraphParams(message, note, paragraph);
+      if (paragraph.getListener() == null) {
+        note.initializeJobListenerForParagraph(paragraph);
+      }
+      paragraph.run();
+//      final InterpreterResult result = paragraph.getResult();
+//      if (result.code() == InterpreterResult.Code.SUCCESS) {
+//        return new JsonResponse<>(Status.OK, result).build();
+//      } else {
+//        return new JsonResponse<>(Status.INTERNAL_SERVER_ERROR, result).build();
+//      }
+    }
+    return new JsonResponse<>(Status.OK).build();
+  }
+
+  @POST
+  @Path("note/run/async/{noteId}")
+  @ZeppelinApi
+  public Response runNoteAsync(@PathParam("noteId") String noteId, String message)
+          throws IOException, IllegalArgumentException {
+    LOG.info("Message {}", message);
+    LOG.info("run note jobs {} ", noteId);
+    Note note = notebook.getNote(noteId);
+    HashMap<String,Object> params = this.MAPPER.readValue(message, typeRef);
+    AuthenticationInfo subject = new AuthenticationInfo(SecurityUtils.getPrincipal());
+    checkIfNoteIsNotNull(note);
+    checkIfUserCanWrite(noteId, "Insufficient privileges you cannot run job for this note");
+    for (Paragraph p: note.getParagraphs()) {
+      try {
+        p.settings.getParams().putAll(params);
+        note.run(p.getId());
+      } catch (Exception ex) {
+        LOG.error("Exception from run", ex);
+        return new JsonResponse<>(Status.PRECONDITION_FAILED,
+                ex.getMessage() + "- Not selected or Invalid Interpreter bind").build();
+      }
+    }
+
+    return new JsonResponse<>(Status.OK).build();
+
   }
 
   /**
