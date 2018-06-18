@@ -48,6 +48,7 @@ public class InterpreterResult implements Serializable, JsonSerializable {
    * Type of Data.
    */
   public static enum Type {
+    MATHJAX,
     TEXT,
     HTML,
     ANGULAR,

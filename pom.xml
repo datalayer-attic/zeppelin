@@ -59,6 +59,7 @@
     <module>groovy</module>
     <module>spark</module>
     <module>markdown</module>
+    <module>mathjax</module>
     <module>angular</module>
     <module>shell</module>
     <module>livy</module>
