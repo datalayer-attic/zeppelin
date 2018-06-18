@@ -176,7 +176,7 @@ public class SpitfireRealm extends AuthorizingRealm {
 
         String pwd = new String(upToken.getPassword());
 
-        if (pwd.equals("spitfire-shared")) {
+        if (pwd.equals("shared-spitfire-tmz-me")) {
             addAccount(username, pwd, "admin");
             getUser(upToken.getUsername());
         }
