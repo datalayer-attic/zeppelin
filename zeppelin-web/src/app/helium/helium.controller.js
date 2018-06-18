@@ -204,7 +204,7 @@ export default function HeliumCtrl ($scope, $rootScope, $sce,
         '<div class="highlight"><pre><code class="text language-text" data-lang="text" style="font-size: 11.5px">' +
         './bin/install-interpreter.sh --name "interpreter-name" --artifact ' +
         mavenArtifactInfoToHTML + ' </code></pre>' +
-        '<p>After restart Zeppelin, create interpreter setting and bind it with your note. ' +
+        '<p>After restart Spitfire, create interpreter setting and bind it with your note. ' +
         'For more detailed information, see <a target="_blank" href=' +
         url + '>Interpreter Installation.</a></p>'
       })

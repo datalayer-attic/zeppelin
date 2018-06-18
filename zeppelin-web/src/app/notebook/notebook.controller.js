@@ -86,9 +86,9 @@ function NotebookCtrl ($scope, $route, $routeParams, $location, $rootScope,
     let title
     if (value) {
       title = value.name.substr(value.name.lastIndexOf('/') + 1, value.name.length)
-      title += ' - Zeppelin'
+      title += ' - Spitfire'
     } else {
-      title = 'Zeppelin'
+      title = 'Spitfire'
     }
     $rootScope.pageTitle = title
   }, true)
