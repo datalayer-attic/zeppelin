@@ -220,9 +220,29 @@ function NotebookCtrl($scope, $route, $routeParams, $location, $rootScope,
   };
 
   // Export notebook
+  let limit = 0;
+
+  websocketMsgSrv.listConfigurations();
+  $scope.$on('configurationsInfo', function(scope, event) {
+    limit = event.configurations['zeppelin.websocket.max.text.message.size'];
+  });
+
   $scope.exportNote = function() {
     let jsonContent = JSON.stringify($scope.note);
-    saveAsService.saveAs(jsonContent, $scope.note.name, 'json');
+    if (jsonContent.length > limit) {
+      BootstrapDialog.confirm({
+        closable: true,
+        title: 'Note size exceeds importable limit (' + limit + ')',
+        message: 'Do you still want to export this note?',
+        callback: function(result) {
+          if (result) {
+            saveAsService.saveAs(jsonContent, $scope.note.name, 'json');
+          }
+        },
+      });
+    } else {
+      saveAsService.saveAs(jsonContent, $scope.note.name, 'json');
+    }
   };
 
   // Clone note
@@ -248,7 +268,7 @@ function NotebookCtrl($scope, $route, $routeParams, $location, $rootScope,
       message: 'Commit note to current repository?',
       callback: function(result) {
         if (result) {
-          websocketMsgSrv.checkpointNote($routeParams.noteId, commitMessage);
+          websocketMsgSrv.checkpointNote($routeParams.noteId, $routeParams.name, commitMessage);
         }
       },
     });
@@ -263,7 +283,7 @@ function NotebookCtrl($scope, $route, $routeParams, $location, $rootScope,
       message: 'Set notebook head to current revision?',
       callback: function(result) {
         if (result) {
-          websocketMsgSrv.setNoteRevision($routeParams.noteId, $routeParams.revisionId);
+          websocketMsgSrv.setNoteRevision($routeParams.noteId, $routeParams.name, $routeParams.revisionId);
         }
       },
     });
@@ -485,7 +505,7 @@ function NotebookCtrl($scope, $route, $routeParams, $location, $rootScope,
     const trimmedNewName = newName.trim();
     if (trimmedNewName.length > 0 && $scope.note.name !== trimmedNewName) {
       $scope.note.name = trimmedNewName;
-      websocketMsgSrv.renameNote($scope.note.id, $scope.note.name);
+      websocketMsgSrv.renameNote($scope.note.id, $scope.note.name, true);
     }
   };
 
@@ -1183,11 +1203,11 @@ function NotebookCtrl($scope, $route, $routeParams, $location, $rootScope,
   };
 
   const isSettingDirty = function() {
-    if (angular.equals($scope.interpreterBindings, $scope.interpreterBindingsOrig)) {
-      return false;
-    } else {
-      return true;
-    }
+    // if (angular.equals($scope.interpreterBindings, $scope.interpreterBindingsOrig)) {
+    //   return false;
+    // } else {
+    return false;
+    // }
   };
 
   const isPermissionsDirty = function() {

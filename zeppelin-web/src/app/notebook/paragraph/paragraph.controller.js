@@ -930,7 +930,7 @@ function ParagraphCtrl($scope, $rootScope, $route, $window, $routeParams, $locat
             $scope.editor.execCommand('startAutocomplete');
           } else {
             ace.config.loadModule('ace/ext/language_tools', function() {
-              $scope.editor.insertSnippet('\t');
+              $scope.editor.indent();
             });
           }
         },
@@ -1199,7 +1199,9 @@ function ParagraphCtrl($scope, $rootScope, $route, $window, $routeParams, $locat
     bodyEl.finish();
 
     // scroll to scrollTargetPos
-    bodyEl.scrollTo(scrollTargetPos, {axis: 'y', interrupt: true, duration: 100});
+    if (scrollTargetPos) {
+      bodyEl.scrollTo(scrollTargetPos, {axis: 'y', interrupt: true, duration: 100});
+    }
   };
 
   $scope.getEditorValue = function() {

@@ -18,6 +18,7 @@
 
 package org.apache.zeppelin.interpreter;
 
+import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.zeppelin.interpreter.remote.RemoteInterpreterProcess;
 import org.apache.zeppelin.scheduler.Job;
 import org.apache.zeppelin.scheduler.Scheduler;
@@ -120,12 +121,7 @@ public class ManagedInterpreterGroup extends InterpreterGroup {
 
     for (Interpreter interpreter : interpreters) {
       Scheduler scheduler = interpreter.getScheduler();
-      for (Job job : scheduler.getJobsRunning()) {
-        job.abort();
-        job.setStatus(Job.Status.ABORT);
-        LOGGER.info("Job " + job.getJobName() + " aborted ");
-      }
-      for (Job job : scheduler.getJobsWaiting()) {
+      for (Job job : scheduler.getAllJobs()) {
         job.abort();
         job.setStatus(Job.Status.ABORT);
         LOGGER.info("Job " + job.getJobName() + " aborted ");

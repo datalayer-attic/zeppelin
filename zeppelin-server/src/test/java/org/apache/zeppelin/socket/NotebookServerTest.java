@@ -16,41 +16,30 @@
  */
 package org.apache.zeppelin.socket;
 
+import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
-
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-
-import static java.util.Arrays.asList;
-
-import com.google.gson.Gson;
-
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
 
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.HashSet;
 import java.util.List;
-
 import javax.servlet.http.HttpServletRequest;
-
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.display.AngularObject;
 import org.apache.zeppelin.display.AngularObjectBuilder;
-import org.apache.zeppelin.display.AngularObjectRegistry;
 import org.apache.zeppelin.interpreter.InterpreterGroup;
 import org.apache.zeppelin.interpreter.InterpreterSetting;
 import org.apache.zeppelin.interpreter.remote.RemoteAngularObjectRegistry;
@@ -62,24 +51,31 @@ import org.apache.zeppelin.notebook.socket.Message.OP;
 import org.apache.zeppelin.rest.AbstractTestRestApi;
 import org.apache.zeppelin.scheduler.Job;
 import org.apache.zeppelin.server.ZeppelinServer;
+import org.apache.zeppelin.service.ConfigurationService;
+import org.apache.zeppelin.service.NotebookService;
 import org.apache.zeppelin.user.AuthenticationInfo;
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
-/**
- * Basic REST API tests for notebookServer.
- */
+
+/** Basic REST API tests for notebookServer. */
 public class NotebookServerTest extends AbstractTestRestApi {
   private static Notebook notebook;
   private static NotebookServer notebookServer;
-  private static Gson gson;
   private HttpServletRequest mockRequest;
   private AuthenticationInfo anonymous;
 
   @BeforeClass
   public static void init() throws Exception {
     AbstractTestRestApi.startUp(NotebookServerTest.class.getSimpleName());
-    gson = new Gson();
     notebook = ZeppelinServer.notebook;
-    notebookServer = ZeppelinServer.notebookWsServer;
+    notebookServer = spy(ZeppelinServer.notebookWsServer);
+    NotebookService notebookService = new NotebookService(notebook);
+    ConfigurationService configurationService = new ConfigurationService(notebook.getConf());
+    when(notebookServer.getNotebookService()).thenReturn(notebookService);
+    when(notebookServer.getConfigurationService()).thenReturn(configurationService);
   }
 
   @AfterClass
@@ -178,7 +174,7 @@ public class NotebookServerTest extends AbstractTestRestApi {
   public void testMakeSureNoAngularObjectBroadcastToWebsocketWhoFireTheEvent()
           throws IOException, InterruptedException {
     // create a notebook
-    Note note1 = notebook.createNote(anonymous);
+    Note note1 = notebook.createNote("note1", anonymous);
 
     // get reference to interpreterGroup
     InterpreterGroup interpreterGroup = null;
@@ -254,7 +250,7 @@ public class NotebookServerTest extends AbstractTestRestApi {
     Message messageReceived = notebookServer.deserializeMessage(msg);
     Note note = null;
     try {
-      note = notebookServer.importNote(null, null, notebook, messageReceived);
+      note = notebookServer.importNote(null, messageReceived);
     } catch (NullPointerException e) {
       //broadcastNoteList(); failed nothing to worry.
       LOG.error("Exception in NotebookServerTest while testImportNotebook, failed nothing to " +
@@ -282,6 +278,8 @@ public class NotebookServerTest extends AbstractTestRestApi {
     final NotebookServer server = new NotebookServer();
     final Notebook notebook = mock(Notebook.class);
     final Note note = mock(Note.class, RETURNS_DEEP_STUBS);
+    Notebook originalNotebook = ZeppelinServer.notebook;
+    ZeppelinServer.notebook = notebook;
 
     when(notebook.getNote("noteId")).thenReturn(note);
     final Paragraph paragraph = mock(Paragraph.class, RETURNS_DEEP_STUBS);
@@ -308,62 +306,18 @@ public class NotebookServerTest extends AbstractTestRestApi {
             .put("noteId", "noteId")
             .put("paragraphId", "paragraphId"));
 
-    server.noteSocketMap.put("noteId", asList(conn, otherConn));
+    server.getConnectionManager().noteSocketMap.put("noteId", asList(conn, otherConn));
 
     // When
-    server.angularObjectClientBind(conn, new HashSet<String>(), notebook, messageReceived);
+    server.angularObjectClientBind(conn, messageReceived);
 
     // Then
     verify(mdRegistry, never()).addAndNotifyRemoteProcess(varName, value, "noteId", null);
 
     verify(otherConn).send(mdMsg1);
-  }
 
-  @Test
-  public void bindAngularObjectToLocalForParagraphs() throws Exception {
-    //Given
-    final String varName = "name";
-    final String value = "DuyHai DOAN";
-    final Message messageReceived = new Message(OP.ANGULAR_OBJECT_CLIENT_BIND)
-            .put("noteId", "noteId")
-            .put("name", varName)
-            .put("value", value)
-            .put("paragraphId", "paragraphId");
-
-    final NotebookServer server = new NotebookServer();
-    final Notebook notebook = mock(Notebook.class);
-    final Note note = mock(Note.class, RETURNS_DEEP_STUBS);
-    when(notebook.getNote("noteId")).thenReturn(note);
-    final Paragraph paragraph = mock(Paragraph.class, RETURNS_DEEP_STUBS);
-    when(note.getParagraph("paragraphId")).thenReturn(paragraph);
-
-    final AngularObjectRegistry mdRegistry = mock(AngularObjectRegistry.class);
-    final InterpreterGroup mdGroup = new InterpreterGroup("mdGroup");
-    mdGroup.setAngularObjectRegistry(mdRegistry);
-
-    when(paragraph.getBindedInterpreter().getInterpreterGroup()).thenReturn(mdGroup);
-
-    final AngularObject<String> ao1 = AngularObjectBuilder.build(varName, value, "noteId",
-            "paragraphId");
-
-    when(mdRegistry.add(varName, value, "noteId", "paragraphId")).thenReturn(ao1);
-
-    NotebookSocket conn = mock(NotebookSocket.class);
-    NotebookSocket otherConn = mock(NotebookSocket.class);
-
-    final String mdMsg1 =  server.serializeMessage(new Message(OP.ANGULAR_OBJECT_UPDATE)
-            .put("angularObject", ao1)
-            .put("interpreterGroupId", "mdGroup")
-            .put("noteId", "noteId")
-            .put("paragraphId", "paragraphId"));
-
-    server.noteSocketMap.put("noteId", asList(conn, otherConn));
-
-    // When
-    server.angularObjectClientBind(conn, new HashSet<String>(), notebook, messageReceived);
-
-    // Then
-    verify(otherConn).send(mdMsg1);
+    // reset it to original notebook
+    ZeppelinServer.notebook = originalNotebook;
   }
 
   @Test
@@ -378,6 +332,8 @@ public class NotebookServerTest extends AbstractTestRestApi {
 
     final NotebookServer server = new NotebookServer();
     final Notebook notebook = mock(Notebook.class);
+    Notebook originalNotebook = ZeppelinServer.notebook;
+    ZeppelinServer.notebook = notebook;
     final Note note = mock(Note.class, RETURNS_DEEP_STUBS);
     when(notebook.getNote("noteId")).thenReturn(note);
     final Paragraph paragraph = mock(Paragraph.class, RETURNS_DEEP_STUBS);
@@ -401,60 +357,18 @@ public class NotebookServerTest extends AbstractTestRestApi {
             .put("noteId", "noteId")
             .put("paragraphId", "paragraphId"));
 
-    server.noteSocketMap.put("noteId", asList(conn, otherConn));
+    server.getConnectionManager().noteSocketMap.put("noteId", asList(conn, otherConn));
 
     // When
-    server.angularObjectClientUnbind(conn, new HashSet<String>(), notebook, messageReceived);
+    server.angularObjectClientUnbind(conn, messageReceived);
 
     // Then
     verify(mdRegistry, never()).removeAndNotifyRemoteProcess(varName, "noteId", null);
 
     verify(otherConn).send(mdMsg1);
-  }
 
-  @Test
-  public void unbindAngularObjectFromLocalForParagraphs() throws Exception {
-    //Given
-    final String varName = "name";
-    final String value = "val";
-    final Message messageReceived = new Message(OP.ANGULAR_OBJECT_CLIENT_UNBIND)
-            .put("noteId", "noteId")
-            .put("name", varName)
-            .put("paragraphId", "paragraphId");
-
-    final NotebookServer server = new NotebookServer();
-    final Notebook notebook = mock(Notebook.class);
-    final Note note = mock(Note.class, RETURNS_DEEP_STUBS);
-    when(notebook.getNote("noteId")).thenReturn(note);
-    final Paragraph paragraph = mock(Paragraph.class, RETURNS_DEEP_STUBS);
-    when(note.getParagraph("paragraphId")).thenReturn(paragraph);
-
-    final AngularObjectRegistry mdRegistry = mock(AngularObjectRegistry.class);
-    final InterpreterGroup mdGroup = new InterpreterGroup("mdGroup");
-    mdGroup.setAngularObjectRegistry(mdRegistry);
-
-    when(paragraph.getBindedInterpreter().getInterpreterGroup()).thenReturn(mdGroup);
-
-    final AngularObject<String> ao1 = AngularObjectBuilder.build(varName, value, "noteId",
-            "paragraphId");
-
-    when(mdRegistry.remove(varName, "noteId", "paragraphId")).thenReturn(ao1);
-
-    NotebookSocket conn = mock(NotebookSocket.class);
-    NotebookSocket otherConn = mock(NotebookSocket.class);
-
-    final String mdMsg1 =  server.serializeMessage(new Message(OP.ANGULAR_OBJECT_REMOVE)
-            .put("angularObject", ao1)
-            .put("interpreterGroupId", "mdGroup")
-            .put("noteId", "noteId")
-            .put("paragraphId", "paragraphId"));
-    server.noteSocketMap.put("noteId", asList(conn, otherConn));
-
-    // When
-    server.angularObjectClientUnbind(conn, new HashSet<String>(), notebook, messageReceived);
-
-    // Then
-    verify(otherConn).send(mdMsg1);
+    // reset it to original notebook
+    ZeppelinServer.notebook = originalNotebook;
   }
 
   @Test
@@ -473,7 +387,7 @@ public class NotebookServerTest extends AbstractTestRestApi {
     String defaultInterpreterId = "";
     List<InterpreterSetting> settings = notebook.getInterpreterSettingManager().get();
     if (settings.size() > 1) {
-      defaultInterpreterId = settings.get(1).getId();
+      defaultInterpreterId = settings.get(0).getId();
     }
     // create note from sock1
     notebookServer.onMessage(sock1,

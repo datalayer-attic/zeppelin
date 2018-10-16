@@ -77,14 +77,14 @@ if [[ -d "${ZEPPELIN_HOME}/zeppelin-interpreter/target/classes" ]]; then
 fi
 
 # add test classes for unittest
-if [[ -d "${ZEPPELIN_HOME}/zeppelin-interpreter/target/test-classes" ]]; then
-  ZEPPELIN_INTP_CLASSPATH+=":${ZEPPELIN_HOME}/zeppelin-interpreter/target/test-classes"
-fi
 if [[ -d "${ZEPPELIN_HOME}/zeppelin-zengine/target/test-classes" ]]; then
   ZEPPELIN_INTP_CLASSPATH+=":${ZEPPELIN_HOME}/zeppelin-zengine/target/test-classes"
+  if [[ -n "${ZEPPELIN_ZENGINE_TEST}" ]]; then
+    addJarInDirForIntp "${ZEPPELIN_HOME}/zeppelin-zengine/target/test-classes"
+  fi
 fi
 
-addJarInDirForIntp "${ZEPPELIN_HOME}/zeppelin-interpreter/target/lib"
+addJarInDirForIntp "${ZEPPELIN_HOME}/zeppelin-interpreter-api/target"
 addJarInDirForIntp "${ZEPPELIN_HOME}/lib/interpreter"
 addJarInDirForIntp "${INTERPRETER_DIR}"
 
@@ -93,7 +93,7 @@ ZEPPELIN_SERVER=org.apache.zeppelin.interpreter.remote.RemoteInterpreterServer
 
 INTERPRETER_ID=$(basename "${INTERPRETER_DIR}")
 ZEPPELIN_PID="${ZEPPELIN_PID_DIR}/zeppelin-interpreter-${INTERPRETER_ID}-${ZEPPELIN_IDENT_STRING}-${HOSTNAME}-${PORT}.pid"
-ZEPPELIN_LOGFILE="${ZEPPELIN_LOG_DIR}/zeppelin-interpreter-${INTERPRETER_SETTING_NAME}-"
+ZEPPELIN_LOGFILE="${ZEPPELIN_LOG_DIR}/zeppelin-interpreter-${INTERPRETER_GROUP_ID}-"
 
 if [[ -z "$ZEPPELIN_IMPERSONATE_CMD" ]]; then
     if [[ "${INTERPRETER_ID}" != "spark" || "$ZEPPELIN_IMPERSONATE_SPARK_PROXY_USER" == "false" ]]; then
@@ -204,6 +204,21 @@ elif [[ "${INTERPRETER_ID}" == "pig" ]]; then
   else
     echo "TEZ_CONF_DIR is not set, configuration might not be loaded"
   fi
+elif [[ "${INTERPRETER_ID}" == "flink" ]]; then
+  if [[ -n "${HADOOP_CONF_DIR}" ]] && [[ -d "${HADOOP_CONF_DIR}" ]]; then
+    ZEPPELIN_INTP_CLASSPATH+=":${HADOOP_CONF_DIR}"
+    export HADOOP_CONF_DIR=${HADOOP_CONF_DIR}
+  else
+    # autodetect HADOOP_CONF_HOME by heuristic
+    if [[ -n "${HADOOP_HOME}" ]] && [[ -z "${HADOOP_CONF_DIR}" ]]; then
+      if [[ -d "${HADOOP_HOME}/etc/hadoop" ]]; then
+        export HADOOP_CONF_DIR="${HADOOP_HOME}/etc/hadoop"
+      elif [[ -d "/etc/hadoop/conf" ]]; then
+        export HADOOP_CONF_DIR="/etc/hadoop/conf"
+      fi
+    fi
+  fi
+
 fi
 
 addJarInDirForIntp "${LOCAL_INTERPRETER_REPO}"

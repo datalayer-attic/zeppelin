@@ -65,7 +65,7 @@ public class ParagraphTest extends AbstractInterpreterTest {
   @Test
   public void scriptBodyWithReplName() {
     Note note = createNote();
-    Paragraph paragraph = new Paragraph(note, null, interpreterFactory);
+    Paragraph paragraph = new Paragraph(note, null);
     paragraph.setText("%test(1234567");
     assertEquals("test", paragraph.getIntpText());
     assertEquals("(1234567", paragraph.getScriptText());
@@ -78,7 +78,7 @@ public class ParagraphTest extends AbstractInterpreterTest {
   @Test
   public void scriptBodyWithoutReplName() {
     Note note = createNote();
-    Paragraph paragraph = new Paragraph(note, null, interpreterFactory);
+    Paragraph paragraph = new Paragraph(note, null);
     paragraph.setText("1234567");
     assertEquals("", paragraph.getIntpText());
     assertEquals("1234567", paragraph.getScriptText());
@@ -87,7 +87,7 @@ public class ParagraphTest extends AbstractInterpreterTest {
   @Test
   public void replNameAndNoBody() {
     Note note = createNote();
-    Paragraph paragraph = new Paragraph(note, null, interpreterFactory);
+    Paragraph paragraph = new Paragraph(note, null);
     paragraph.setText("%test");
     assertEquals("test", paragraph.getIntpText());
     assertEquals("", paragraph.getScriptText());
@@ -96,7 +96,7 @@ public class ParagraphTest extends AbstractInterpreterTest {
   @Test
   public void replSingleCharName() {
     Note note = createNote();
-    Paragraph paragraph = new Paragraph(note, null, interpreterFactory);
+    Paragraph paragraph = new Paragraph(note, null);
     paragraph.setText("%r a");
     assertEquals("r", paragraph.getIntpText());
     assertEquals("a", paragraph.getScriptText());
@@ -105,7 +105,7 @@ public class ParagraphTest extends AbstractInterpreterTest {
   @Test
   public void testParagraphProperties() {
     Note note = createNote();
-    Paragraph paragraph = new Paragraph(note, null, interpreterFactory);
+    Paragraph paragraph = new Paragraph(note, null);
     paragraph.setText("%test(p1=v1,p2=v2) a");
     assertEquals("test", paragraph.getIntpText());
     assertEquals("a", paragraph.getScriptText());
@@ -137,14 +137,14 @@ public class ParagraphTest extends AbstractInterpreterTest {
     expectedEx.expectMessage("Invalid paragraph properties format");
 
     Note note = createNote();
-    Paragraph paragraph = new Paragraph(note, null, interpreterFactory);
+    Paragraph paragraph = new Paragraph(note, null);
     paragraph.setText("%test(p1=v1=v2) a");
   }
 
   @Test
   public void replInvalid() {
     Note note = createNote();
-    Paragraph paragraph = new Paragraph(note, null, interpreterFactory);
+    Paragraph paragraph = new Paragraph(note, null);
     paragraph.setText("foo %r");
     assertEquals("", paragraph.getIntpText());
     assertEquals("foo %r", paragraph.getScriptText());
@@ -161,7 +161,7 @@ public class ParagraphTest extends AbstractInterpreterTest {
   @Test
   public void replNameEndsWithWhitespace() {
     Note note = createNote();
-    Paragraph paragraph = new Paragraph(note, null, interpreterFactory);
+    Paragraph paragraph = new Paragraph(note, null);
     paragraph.setText("%test\r\n###Hello");
     assertEquals("test", paragraph.getIntpText());
     assertEquals("###Hello", paragraph.getScriptText());
@@ -214,7 +214,7 @@ public class ParagraphTest extends AbstractInterpreterTest {
     final String scriptBody = "My name is ${name} and I am ${age=20} years old. " +
             "My occupation is ${ job = engineer | developer | artists}";
 
-    final Paragraph paragraph = new Paragraph(note, null, null);
+    final Paragraph paragraph = new Paragraph(note, null);
     final String paragraphId = paragraph.getId();
 
     final AngularObject nameAO = AngularObjectBuilder.build("name", "DuyHai DOAN", noteId,
@@ -240,19 +240,19 @@ public class ParagraphTest extends AbstractInterpreterTest {
 
   @Test
   public void returnDefaultParagraphWithNewUser() {
-    Paragraph p = new Paragraph("para_1", null, null, null);
-    Object defaultValue = "Default Value";
-    p.setResult(defaultValue);
+    Paragraph p = new Paragraph("para_1", null, null);
+    String defaultValue = "Default Value";
+    p.setResult(new InterpreterResult(Code.SUCCESS, defaultValue));
     Paragraph newUserParagraph = p.getUserParagraph("new_user");
     assertNotNull(newUserParagraph);
-    assertEquals(defaultValue, newUserParagraph.getReturn());
+    assertEquals(defaultValue, newUserParagraph.getReturn().message().get(0).getData());
   }
 
   @Test
   public void returnUnchangedResultsWithDifferentUser() throws Throwable {
     Note mockNote = mock(Note.class);
     when(mockNote.getCredentials()).thenReturn(mock(Credentials.class));
-    Paragraph spyParagraph = spy(new Paragraph("para_1", mockNote,  null, null));
+    Paragraph spyParagraph = spy(new Paragraph("para_1", mockNote,  null));
 
     Interpreter mockInterpreter = mock(Interpreter.class);
     spyParagraph.setInterpreter(mockInterpreter);
@@ -266,12 +266,14 @@ public class ParagraphTest extends AbstractInterpreterTest {
 
     List<InterpreterSetting> spyInterpreterSettingList = spy(Lists.<InterpreterSetting>newArrayList());
     InterpreterSetting mockInterpreterSetting = mock(InterpreterSetting.class);
+    when(mockInterpreterGroup.getInterpreterSetting()).thenReturn(mockInterpreterSetting);
     InterpreterOption mockInterpreterOption = mock(InterpreterOption.class);
     when(mockInterpreterSetting.getOption()).thenReturn(mockInterpreterOption);
     when(mockInterpreterOption.permissionIsSet()).thenReturn(false);
     when(mockInterpreterSetting.getStatus()).thenReturn(Status.READY);
     when(mockInterpreterSetting.getId()).thenReturn("mock_id_1");
     when(mockInterpreterSetting.getOrCreateInterpreterGroup(anyString(), anyString())).thenReturn(mockInterpreterGroup);
+    when(mockInterpreterSetting.isUserAuthorized(any(List.class))).thenReturn(true);
     spyInterpreterSettingList.add(mockInterpreterSetting);
     when(mockNote.getId()).thenReturn("any_id");
 
@@ -284,7 +286,6 @@ public class ParagraphTest extends AbstractInterpreterTest {
     InterpreterResult mockInterpreterResult = mock(InterpreterResult.class);
     when(mockInterpreter.interpret(anyString(), Mockito.<InterpreterContext>any())).thenReturn(mockInterpreterResult);
     when(mockInterpreterResult.code()).thenReturn(Code.SUCCESS);
-
 
     // Actual test
     List<InterpreterResultMessage> result1 = Lists.newArrayList();

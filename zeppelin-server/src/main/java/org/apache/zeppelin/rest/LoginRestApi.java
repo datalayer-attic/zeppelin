@@ -17,6 +17,7 @@
 package org.apache.zeppelin.rest;
 
 import com.google.gson.Gson;
+import javax.inject.Inject;
 import org.apache.shiro.authc.AuthenticationException;
 import org.apache.shiro.authc.AuthenticationToken;
 import org.apache.shiro.authc.IncorrectCredentialsException;
@@ -25,6 +26,8 @@ import org.apache.shiro.authc.UnknownAccountException;
 import org.apache.shiro.authc.UsernamePasswordToken;
 import org.apache.shiro.realm.Realm;
 import org.apache.shiro.subject.Subject;
+import org.apache.zeppelin.conf.ZeppelinConfiguration;
+import org.apache.zeppelin.notebook.Notebook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,12 +65,11 @@ import org.apache.zeppelin.utils.SecurityUtils;
 public class LoginRestApi {
   private static final Logger LOG = LoggerFactory.getLogger(LoginRestApi.class);
   private static final Gson gson = new Gson();
+  private ZeppelinConfiguration zConf;
 
-  /**
-   * Required by Swagger.
-   */
-  public LoginRestApi() {
-    super();
+  @Inject
+  public LoginRestApi(Notebook notebook) {
+    this.zConf = notebook.getConf();
   }
 
   @GET
@@ -138,7 +140,7 @@ public class LoginRestApi {
       currentUser.getSession(true);
       currentUser.login(token);
 
-      HashSet<String> roles = SecurityUtils.getRoles();
+      HashSet<String> roles = SecurityUtils.getAssociatedRoles();
       String principal = SecurityUtils.getPrincipal();
       String ticket;
       if ("anonymous".equals(principal)) {
@@ -212,15 +214,22 @@ public class LoginRestApi {
   public Response logout() {
     JsonResponse response;
     logoutCurrentUser();
+    Status status = null;
+    Map<String, String> data = new HashMap<>();
+    if (zConf.isAuthorizationHeaderClear()) {
+      status = Status.UNAUTHORIZED;
+      data.put("clearAuthorizationHeader", "true");
+    } else {
+      status = Status.FORBIDDEN;
+      data.put("clearAuthorizationHeader", "false");
+    }
     if (isKnoxSSOEnabled()) {
       KnoxJwtRealm knoxJwtRealm = getJTWRealm();
-      Map<String, String> data = new HashMap<>();
       data.put("redirectURL", constructKnoxUrl(knoxJwtRealm, knoxJwtRealm.getLogout()));
       data.put("isLogoutAPI", knoxJwtRealm.getLogoutAPI().toString());
-      response = new JsonResponse(Status.UNAUTHORIZED, "", data);
+      response = new JsonResponse(status, "", data);
     } else {
-      response = new JsonResponse(Status.UNAUTHORIZED, "", "");
-
+      response = new JsonResponse(status, "", data);
     }
     LOG.warn(response.toString());
     return response.build();

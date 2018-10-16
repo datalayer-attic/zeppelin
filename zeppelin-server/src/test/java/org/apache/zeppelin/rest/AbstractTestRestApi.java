@@ -129,6 +129,7 @@ public abstract class AbstractTestRestApi {
 
   protected static File zeppelinHome;
   protected static File confDir;
+  protected static File notebookDir;
 
   private String getUrl(String path) {
     String url;
@@ -166,8 +167,14 @@ public abstract class AbstractTestRestApi {
     }
   };
 
-  private static void start(boolean withAuth, String testClassName, boolean withKnox)
+  private static void start(boolean withAuth,
+                            String testClassName,
+                            boolean withKnox,
+                            boolean cleanData)
           throws Exception {
+    LOG.info("Starting ZeppelinServer withAuth: {}, testClassName: {}, withKnox: {}",
+        withAuth, testClassName, withKnox);
+    
     if (!WAS_RUNNING) {
       // copy the resources files to a temp folder
       zeppelinHome = new File("..");
@@ -176,11 +183,22 @@ public abstract class AbstractTestRestApi {
       confDir.mkdirs();
 
       System.setProperty(ZeppelinConfiguration.ConfVars.ZEPPELIN_HOME.getVarName(),
-              zeppelinHome.getAbsolutePath());
+          zeppelinHome.getAbsolutePath());
       System.setProperty(ZeppelinConfiguration.ConfVars.ZEPPELIN_WAR.getVarName(),
-              new File("../zeppelin-web/dist").getAbsolutePath());
+          new File("../zeppelin-web/dist").getAbsolutePath());
       System.setProperty(ZeppelinConfiguration.ConfVars.ZEPPELIN_CONF_DIR.getVarName(),
-              confDir.getAbsolutePath());
+          confDir.getAbsolutePath());
+      System.setProperty(
+          ZeppelinConfiguration.ConfVars.ZEPPELIN_INTERPRETER_GROUP_DEFAULT.getVarName(),
+          "spark");
+      notebookDir = new File(zeppelinHome.getAbsolutePath() + "/notebook_" + testClassName);
+      if (cleanData) {
+        FileUtils.deleteDirectory(notebookDir);
+      }
+      System.setProperty(
+          ZeppelinConfiguration.ConfVars.ZEPPELIN_NOTEBOOK_DIR.getVarName(),
+          notebookDir.getPath()
+      );
 
       // some test profile does not build zeppelin-web.
       // to prevent zeppelin starting up fail, create zeppelin-web/dist directory
@@ -214,26 +232,6 @@ public abstract class AbstractTestRestApi {
 
       }
 
-      // exclude org.apache.zeppelin.rinterpreter.* for scala 2.11 test
-      String interpreters = conf.getString(ZeppelinConfiguration.ConfVars.ZEPPELIN_INTERPRETERS);
-      String interpretersCompatibleWithScala211Test = null;
-
-      for (String intp : interpreters.split(",")) {
-        if (intp.startsWith("org.apache.zeppelin.rinterpreter")) {
-          continue;
-        }
-
-        if (interpretersCompatibleWithScala211Test == null) {
-          interpretersCompatibleWithScala211Test = intp;
-        } else {
-          interpretersCompatibleWithScala211Test += "," + intp;
-        }
-      }
-
-      System.setProperty(
-          ZeppelinConfiguration.ConfVars.ZEPPELIN_INTERPRETERS.getVarName(),
-          interpretersCompatibleWithScala211Test);
-
       executor = Executors.newSingleThreadExecutor();
       executor.submit(SERVER);
       long s = System.currentTimeMillis();
@@ -253,15 +251,19 @@ public abstract class AbstractTestRestApi {
   }
 
   protected static void startUpWithKnoxEnable(String testClassName) throws Exception {
-    start(true, testClassName, true);
+    start(true, testClassName, true, true);
   }
   
   protected static void startUpWithAuthenticationEnable(String testClassName) throws Exception {
-    start(true, testClassName, false);
+    start(true, testClassName, false, true);
   }
   
   protected static void startUp(String testClassName) throws Exception {
-    start(false, testClassName, false);
+    start(false, testClassName, false, true);
+  }
+
+  protected static void startUp(String testClassName, boolean cleanData) throws Exception {
+    start(false, testClassName, false, cleanData);
   }
 
   private static String getHostname() {
@@ -309,8 +311,7 @@ public abstract class AbstractTestRestApi {
       }
 
       LOG.info("Test Zeppelin terminated.");
-
-      System.clearProperty(ZeppelinConfiguration.ConfVars.ZEPPELIN_INTERPRETERS.getVarName());
+      
       if (isRunningWithAuth) {
         isRunningWithAuth = false;
         System

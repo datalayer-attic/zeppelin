@@ -16,20 +16,22 @@
  */
 package org.apache.zeppelin.rest;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
-
 import org.apache.commons.httpclient.methods.DeleteMethod;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.commons.httpclient.methods.PutMethod;
+import org.apache.zeppelin.interpreter.InterpreterOption;
+import org.apache.zeppelin.interpreter.InterpreterSetting;
+import org.apache.zeppelin.notebook.Note;
+import org.apache.zeppelin.notebook.Paragraph;
+import org.apache.zeppelin.scheduler.Job.Status;
+import org.apache.zeppelin.server.ZeppelinServer;
+import org.apache.zeppelin.user.AuthenticationInfo;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -42,13 +44,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.zeppelin.interpreter.InterpreterOption;
-import org.apache.zeppelin.interpreter.InterpreterSetting;
-import org.apache.zeppelin.notebook.Note;
-import org.apache.zeppelin.notebook.Paragraph;
-import org.apache.zeppelin.scheduler.Job.Status;
-import org.apache.zeppelin.server.ZeppelinServer;
-import org.apache.zeppelin.user.AuthenticationInfo;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
 
 /**
  * Zeppelin interpreter rest api tests.
@@ -235,25 +232,9 @@ public class InterpreterRestApiTest extends AbstractTestRestApi {
     post.releaseConnection();
   }
 
-  @Test
-  public void testInterpreterAutoBinding() throws IOException {
-    // when
-    Note note = ZeppelinServer.notebook.createNote(anonymous);
-    GetMethod get = httpGet("/notebook/interpreter/bind/" + note.getId());
-    assertThat(get, isAllowed());
-    get.addRequestHeader("Origin", "http://localhost");
-    JsonArray body = getArrayBodyFieldFromResponse(get.getResponseBodyAsString());
-
-    // then: check interpreter is binded
-    assertTrue(0 < body.size());
-    get.releaseConnection();
-    ZeppelinServer.notebook.removeNote(note.getId(), anonymous);
-  }
-
-  @Test
   public void testInterpreterRestart() throws IOException, InterruptedException {
     // when: create new note
-    Note note = ZeppelinServer.notebook.createNote(anonymous);
+    Note note = ZeppelinServer.notebook.createNote("note1", anonymous);
     note.addNewParagraph(AuthenticationInfo.ANONYMOUS);
     Paragraph p = note.getLastParagraph();
     Map config = p.getConfig();
@@ -267,7 +248,7 @@ public class InterpreterRestApiTest extends AbstractTestRestApi {
     while (p.getStatus() != Status.FINISHED) {
       Thread.sleep(100);
     }
-    assertEquals(p.getResult().message().get(0).getData(), getSimulatedMarkdownResult("markdown"));
+    assertEquals(p.getReturn().message().get(0).getData(), getSimulatedMarkdownResult("markdown"));
 
     // when: restart interpreter
     for (InterpreterSetting setting : ZeppelinServer.notebook.getInterpreterSettingManager()
@@ -292,7 +273,7 @@ public class InterpreterRestApiTest extends AbstractTestRestApi {
     }
 
     // then
-    assertEquals(p.getResult().message().get(0).getData(),
+    assertEquals(p.getReturn().message().get(0).getData(),
             getSimulatedMarkdownResult("markdown restarted"));
     ZeppelinServer.notebook.removeNote(note.getId(), anonymous);
   }
@@ -300,7 +281,7 @@ public class InterpreterRestApiTest extends AbstractTestRestApi {
   @Test
   public void testRestartInterpreterPerNote() throws IOException, InterruptedException {
     // when: create new note
-    Note note = ZeppelinServer.notebook.createNote(anonymous);
+    Note note = ZeppelinServer.notebook.createNote("note1", anonymous);
     note.addNewParagraph(AuthenticationInfo.ANONYMOUS);
     Paragraph p = note.getLastParagraph();
     Map config = p.getConfig();
@@ -314,7 +295,7 @@ public class InterpreterRestApiTest extends AbstractTestRestApi {
     while (p.getStatus() != Status.FINISHED) {
       Thread.sleep(100);
     }
-    assertEquals(p.getResult().message().get(0).getData(), getSimulatedMarkdownResult("markdown"));
+    assertEquals(p.getReturn().message().get(0).getData(), getSimulatedMarkdownResult("markdown"));
 
     // when: get md interpreter
     InterpreterSetting mdIntpSetting = null;
